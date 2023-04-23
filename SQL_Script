@@ -1,0 +1,150 @@
+-- Step 1 - Exploring the data
+SELECT *
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths`
+WHERE continent IS NOT NULL
+ORDER BY 3,4
+LIMIT 100
+
+SELECT *
+FROM `my-project-2022-358909.COVID_DATA.Covid_vaccinations`
+WHERE continent IS NOT NULL 
+ORDER BY 3, 4
+LIMIT 100
+
+--Selecting data for first insights
+SELECT location, date, population, total_cases, new_cases, total_deaths
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths`
+WHERE continent IS NOT NULL
+ORDER BY 1,2 
+LIMIT 100
+
+-- Determining percentage of population that had COVID in Australia
+SELECT location, date, total_cases, population, ROUND((total_cases/population)*100,4) AS percent_infected
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths`
+WHERE continent IS NOT NULL AND location = 'Australia'
+ORDER BY 2
+LIMIT 100
+
+-- VS percentage of population that had COVID in Europe
+SELECT location, date, total_cases, population, ROUND((total_cases/population)*100,4) AS percent_infected
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths`
+WHERE location = 'Europe'
+ORDER BY 2
+LIMIT 100
+
+-- And percentage of population that had COVID in United States
+SELECT location, date, total_cases, population, ROUND((total_cases/population)*100,4) AS percent_infected
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths`
+WHERE continent IS NOT NULL AND location = 'United States'
+ORDER BY 2 
+LIMIT 100
+
+-- Combining above queries for vizualization purposes
+SELECT location, date, total_cases, population, ROUND((total_cases/population)*100,4) AS percent_infected
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths`
+WHERE location = 'Europe'
+OR continent IS NOT NULL 
+AND location = 'United States'
+OR location = 'Australia'
+ORDER BY 2 DESC
+
+-- Determining the chances of dying if infected with COVID in Australia
+SELECT location, date, total_cases, total_deaths, ROUND((total_deaths/total_cases)*100,4) AS death_percentage
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths`
+WHERE continent IS NOT NULL AND location = 'Australia'
+ORDER BY 2 
+LIMIT 100
+
+-- VS the chances of dying if infected with COVID in Europe
+SELECT location, date, total_cases, total_deaths, ROUND((total_deaths/total_cases)*100,4) AS death_percentage
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths`
+WHERE location = 'Europe'
+ORDER BY 2 
+LIMIT 100
+
+-- And the chances of dying if infected with COVID in United States
+SELECT location, date, total_cases, total_deaths, ROUND((total_deaths/total_cases)*100,4) AS death_percentage
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths`
+WHERE continent IS NOT NULL AND location = 'United States'
+ORDER BY 2 
+LIMIT 100
+
+-- Checking infection rate compared to population by country
+SELECT location, population, MAX(total_cases) AS highest_infection_count, 
+       ROUND(MAX(total_cases)/population*100,2) AS percent_infected
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths`
+WHERE continent IS NOT NULL 
+GROUP BY 1,2
+ORDER BY 4 DESC
+
+-- Total cases and total death worldwide
+SELECT 
+       SUM(new_cases) AS total_cases, 
+       SUM(cast(new_deaths as int)) AS total_deaths,
+       ROUND(SUM(cast(new_deaths as int))/SUM(new_cases)*100,2) AS death_percentage
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths`
+WHERE continent IS NOT NULL 
+
+-- Top 50 countries with the highest death count
+SELECT location,     
+       SUM(cast(new_deaths as int)) AS total_deaths
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths`
+WHERE continent IS NOT NULL 
+GROUP BY 1
+ORDER BY 2 DESC
+LIMIT 50
+
+-- Top 50 countries with the highest death rate
+SELECT location, total_cases, total_deaths,
+       ROUND(total_deaths/total_cases*100,2) AS death_percentage
+FROM (
+SELECT location,
+       SUM(new_cases) AS total_cases, 
+       SUM(cast(new_deaths as int)) AS total_deaths
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths`
+WHERE continent IS NOT NULL 
+AND total_deaths > 0
+GROUP BY 1
+)
+ORDER BY 4 DESC
+LIMIT 50
+
+-- Vaccination rates by countries (adding an outer query to exclude results that show more than 100% rate.)
+SELECT *
+FROM (
+  SELECT d.continent, d.location, 
+      MAX(ROUND((v.people_vaccinated/d.population)*100,2)) AS percentage_vaccinated
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths` d
+JOIN `my-project-2022-358909.COVID_DATA.Covid_vaccinations` v
+ON d.location = v.location
+AND d.date = v.date
+WHERE d.continent IS NOT NULL 
+AND v.people_vaccinated IS NOT NULL
+GROUP BY 1,2
+ORDER BY 3 DESC )
+WHERE percentage_vaccinated <=100
+
+-- Infection rates in 2023 by countries
+SELECT location,
+       ROUND(total_cases/population*100,2) AS infection_rate
+FROM (
+SELECT location, EXTRACT(year from date) AS year, population,
+       SUM(new_cases) AS total_cases 
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths`
+WHERE continent IS NOT NULL 
+AND EXTRACT(year from date) = 2023
+GROUP BY 1,2,3)
+ORDER BY 2 DESC
+
+-- Comparing vaccination rates to chance of dying in Australia
+SELECT d.location, d.date,
+      ROUND((v.people_vaccinated/d.population)*100,2) AS percentage_vaccinated,
+      ROUND((d.total_deaths/d.total_cases)*100,2) AS death_percentage
+FROM `my-project-2022-358909.COVID_DATA.Covid_deaths` d
+JOIN `my-project-2022-358909.COVID_DATA.Covid_vaccinations` v
+ON d.location = v.location
+AND d.date = v.date
+WHERE d.continent IS NOT NULL 
+AND d.location = 'Australia'
+AND v.people_vaccinated IS NOT NULL
+ORDER BY 2, 3
